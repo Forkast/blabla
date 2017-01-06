@@ -1,14 +1,16 @@
-#include <thread>
+#include <cstdio>
+#include <string>
 #include <vector>
 #include <stack>
 #include <set>
 #include <queue>
 #include <atomic>
 #include <list>
+#include <thread>
 
 using namespace std;
 
-const int MAX = 1000000;
+const int MAX = 10000;
 
 double BC[MAX];//do zrobienia monitor
 
@@ -23,6 +25,7 @@ void brandes(int s)
 	double sigma[MAX];
 	int d[MAX];
 	double delta[MAX];
+	printf("koniec deklaracji\n");
 	for (int w : V) {
 		sigma[w] = 0;
 		d[w] = -1;
@@ -36,12 +39,16 @@ void brandes(int s)
 		int v = Q.front();
 		Q.pop();
 		S.push(v);
+		printf("operacja dla v: %d\n", v);
 		for (int w : neigh[v]) {
-			if (d[w] > 0) {
+			printf(" - sasiad numer: %d lezy na %d\n", w, d[w]);
+			if (d[w] < 0) {
+				printf(" * znalazlem %d\n", w);
 				Q.push(w);
 				d[w] = d[v] + 1;
 			}
 			if (d[w] == d[v] + 1) {
+				printf(" ** rozszerzone %d\n", w);
 				sigma[w] += sigma[v];
 				P[w].push_back(v);
 			}
@@ -75,6 +82,8 @@ int main(int argc, char * argv[])
 	while (fscanf(input, "%d %d\n", &v, &e) != EOF) {
 		printf(" -- pobrałem linijke %d %d\n", v, e);
 		neigh[v].push_back(e);
+		V.insert(v);
+		V.insert(e);
 		cnt++;
 		printf("%d\n", cnt);
 		if (feof(input)) {
@@ -82,15 +91,13 @@ int main(int argc, char * argv[])
 			break;
 		}
 	}
-	printf("%d wynikow w 0,02s", cnt);
-	for (int i = 0; i < MAX; i++) {
-		if (!neigh[i].empty()) {
-			brandes(i);
-			printf("%d\n", i);
-		}
+	printf("%d wynikow w 0,02s\n", cnt);
+	for (auto i : V) {
+		printf("brandesuje %d\n", i);
+		brandes(i);
 	}
 	for (int i = 0; i < MAX; i++) {
 		if (!neigh[i].empty())
-			fprintf(output, "%d %lf\n", i, BC[i]);
+			fprintf(output, "%d %.2lf\n", i, BC[i]);
 	}
 }
