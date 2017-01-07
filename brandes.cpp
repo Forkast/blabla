@@ -22,7 +22,6 @@ queue <int, list<int>> vertQ;
 
 int threadCount;
 mutex cv_m;
-condition_variable threadCV;
 
 void brandes(int s)
 {
@@ -127,6 +126,10 @@ int main(int argc, char * argv[])
 				}
 			}
 		});
+	}
+
+	for (size_t i = 0; i < threads.size(); i++) {
+		threads[i].join();
 	}
 
 	for (int i = 0; i < MAX; i++) {
