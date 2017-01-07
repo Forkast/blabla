@@ -7,6 +7,7 @@
 #include <atomic>
 #include <list>
 #include <thread>
+#include <condition_variable>
 
 using namespace std;
 
@@ -15,13 +16,18 @@ const int MAX = 10000;
 double BC[MAX];//do zrobienia monitor
 
 vector <int> neigh[MAX];
-vector <int> P[MAX];
 
 set <int> V;
+queue <int, list<int>> vertQ;
+
+int threadCount;
+mutex cv_m;
+condition_variable threadCV;
 
 void brandes(int s)
 {
 	stack <int> S;
+	vector <int> P[MAX];
 	double sigma[MAX];
 	int d[MAX];
 	double delta[MAX];
@@ -51,6 +57,7 @@ void brandes(int s)
 				printf(" ** rozszerzone %d\n", w);
 				sigma[w] += sigma[v];
 				P[w].push_back(v);
+				printf(" ** teraz lezy na %d i ma sigme %.2lf\n", d[w], sigma[w]);
 			}
 		}
 	}
@@ -58,10 +65,16 @@ void brandes(int s)
 		int w = S.top();
 		S.pop();
 		for (int v : P[w]) {
+			printf("dla %d poprzednikiem jest %d\n i ma delte %.2lf\n", w, v, delta[w]);
 			delta[v] += (sigma[v] / sigma[w]) * (1 + delta[w]);
+			printf("delta %.2lf\n", delta[v]);
 		}
 		if (w != s) {
-			BC[w] += delta[w];
+			printf(" # # dodaje %lf do %d\n", delta[w], w);
+			{
+				unique_lock<mutex> lk(cv_m);
+				BC[w] += delta[w];
+			}
 		}
 	}
 }
@@ -72,7 +85,7 @@ int main(int argc, char * argv[])
 		printf("Usage: %s number_of_threads input_file_name output_file_name\n", argv[0]);
 		return 1;
 	}
-	int threadCount = stoi(argv[1]);
+	int maxThreads = stoi(argv[1]);
 	printf("otwieramy pliki: %s -> %s\n", argv[2], argv[3]);
 	FILE * input = fopen(argv[2], "r");
 	FILE * output = fopen(argv[3], "w");
@@ -92,10 +105,30 @@ int main(int argc, char * argv[])
 		}
 	}
 	printf("%d wynikow w 0,02s\n", cnt);
+
 	for (auto i : V) {
-		printf("brandesuje %d\n", i);
-		brandes(i);
+		vertQ.push(i);
 	}
+
+	vector<thread> threads;
+	for (int i = 0; i < maxThreads; i++) {
+		threads.push_back(thread{
+			[=] {
+				while (!vertQ.empty()) {
+					int s;
+					{
+						unique_lock<mutex> lk(cv_m);
+						if (vertQ.empty())
+							return;
+						s = vertQ.front();
+						vertQ.pop();
+					}
+					brandes(s);
+				}
+			}
+		});
+	}
+
 	for (int i = 0; i < MAX; i++) {
 		if (!neigh[i].empty())
 			fprintf(output, "%d %.2lf\n", i, BC[i]);
